@@ -16,7 +16,8 @@
 - cuando el interruptor este en modo "numeros comunes" el displey mostrara todos los numeros entre 0 y 99 a medida que se vayan presionando los pulsadores.
 
 GDB: https://onlinegdb.com/Vi5yQCTtO
-Github:
+Github: https://github.com/lionel-prats/spd1_utnfra
+Tinkercad: https://www.tinkercad.com/things/7CYM2ApYDvj-switch-contador-comun-numeros-primos/editel
 
 */
 

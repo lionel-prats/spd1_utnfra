@@ -15,7 +15,8 @@
 - si se pulsa el pulsador RESET los displays mostraran el "00"
 
 GDB: https://onlinegdb.com/6GxWGLoVv
-Github:
+Github: https://github.com/lionel-prats/spd1_utnfra
+Tinkercad: https://www.tinkercad.com/things/bByLLaWxxTY-contador-manual-multiplexado-0-99-3-pulsadores-version-1/editel
 
 */
 
