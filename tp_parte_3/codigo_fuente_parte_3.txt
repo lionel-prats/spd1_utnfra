@@ -1,0 +1,362 @@
+/*
+Sistemas de procesamiento de datos I:
+TP grupal parte 3
+
+- Integrantes:
+- Pedulla, Ezequiel
+- Prats Costa, Raul Lionel
+- Villalba, Axel
+
+Componentes y funcionalidades:
+- sensor de temperatura: mediante un pulsador se puede leer la temperatura actual.
+- iluminación artificial inteligente: gracias a un sensor de luz ambiental, un led, apagado durante el día, 
+  se activa y aumenta o disminuye su luminosidad según el nivel de luminosidad detectado en el entorno.
+- 3 displays de 7 segmentos multiplexados. 
+- 2 pulsadores: "ANTERIOR" y "SIGUIENTE". 
+- interruptor modo "numeros primos" y modo "numeros comunes".
+- mediante dos pulsadores, se pueden ir visibilizando numeros entre 0 y 999 de manera creciente o decreciente. 
+- hay un interruptor con dos modos: "numeros primos" (izquierda) y "numeros comunes" (derecha)
+- cuando este en modo "numeros primos", y en la medida que se activen los pulsadores, los displays iran
+mostrando todos los numeros primos entre 0 y 999.
+- cuando este en modo "numeros comunes", y en la medida que se activen los pulsadores, los displays iran
+mostrando todos los numeros entre 0 y 999 de manera consecutiva.
+
+GDB: https://onlinegdb.com/YNnAKx2yiM
+Github: https://github.com/lionel-prats/spd1_utnfra
+Tinkercad: https://www.tinkercad.com/things/fzbu9nkeyNq-copy-of-termometroresetprimos0-999numeros0-999/editel?tenant=circuits
+*/
+
+// segmentos del display
+#define SEGMENTO_A 12
+#define SEGMENTO_B 13
+#define SEGMENTO_C 7
+#define SEGMENTO_D 8
+#define SEGMENTO_E 9
+#define SEGMENTO_F 11
+#define SEGMENTO_G 10
+ 
+// switch numeros primos|numeros comunes
+#define INTERRUPTOR 5
+
+// pulsadores (anterior | siguiente | mostrar temperatura)
+#define BOTON_INCREMENTAR 4
+#define BOTON_DECREMENTAR 3
+#define MOSTRAR_TEMPERATURA 2
+
+// pin sensor de temperatura
+#define SENSOR_TEMPERATURA A0
+
+// pines displays
+#define DISPLAY_CENTENA A5
+#define DISPLAY_DECENA A4
+#define DISPLAY_UNIDAD A3
+
+#define APAGAR_DISPLAYS 0
+
+#define TIEMPO_DELAY 5
+
+void setup()
+{
+  pinMode(INTERRUPTOR, INPUT_PULLUP);
+  
+  pinMode(BOTON_DECREMENTAR, INPUT_PULLUP);
+  pinMode(BOTON_INCREMENTAR, INPUT_PULLUP);
+  pinMode(MOSTRAR_TEMPERATURA, INPUT_PULLUP);
+  
+  pinMode(SEGMENTO_A, OUTPUT);
+  pinMode(SEGMENTO_B, OUTPUT);
+  pinMode(SEGMENTO_C, OUTPUT);
+  pinMode(SEGMENTO_D, OUTPUT);
+  pinMode(SEGMENTO_E, OUTPUT);
+  pinMode(SEGMENTO_F, OUTPUT);
+  pinMode(SEGMENTO_G, OUTPUT);
+  
+  pinMode(DISPLAY_CENTENA, OUTPUT);
+  pinMode(DISPLAY_DECENA, OUTPUT);
+  pinMode(DISPLAY_UNIDAD, OUTPUT);
+  
+  // Serial.begin(9600);
+}
+
+/*
+estados previos y actuales de los pulsadores "anterior" y "siguiente".
+por defecto las 4 variables seteadas en 1, 
+el estado de un boton en reposo con la configuracion INPUT_PULLUP
+*/
+int botonIncrementarEstadoActual = 1; 
+int botonIncremenatarEstadoPrevio = 1;
+
+int botonDecrementarEstadoActual = 1; 
+int botonDecrementarEstadPrevio = 1; 
+
+int mostrarNumerosPrimos = 1;
+  
+bool negativo = false;
+
+int valor = 0;
+int valorAnterior = 0;
+
+void loop()
+{
+  
+  // bloque sensor de luz ambiental
+  int lecturaSensorLuz = analogRead(A2);
+  if(lecturaSensorLuz <= 13){
+  	lecturaSensorLuz = 0;
+  }
+  analogWrite(6, lecturaSensorLuz/4);
+  // fin bloque sensor de luz ambiental
+  
+  int pin_boton_presionado = get_pin_boton_presionado();
+  
+  // Serial.println(digitalRead(INTERRUPTOR));
+  
+  if (pin_boton_presionado == MOSTRAR_TEMPERATURA) { 
+    	valor = map(analogRead(SENSOR_TEMPERATURA), 20, 358, -40, 125);
+  } else {
+    
+    valor = valorAnterior;
+    
+    // switcheado para mostrar contador numeros primos
+    if(digitalRead(INTERRUPTOR) == mostrarNumerosPrimos)
+    {
+
+      if(pin_boton_presionado == BOTON_INCREMENTAR){  
+        valor++;
+        while (!esPrimo(valor)) {
+          valor++;
+          if(valor > 999){
+              valor = 2;
+          }
+        }
+      } else if(pin_boton_presionado == BOTON_DECREMENTAR) {
+        valor--;
+        while (!esPrimo(valor)) {
+          valor--;
+          if(valor < 0 )
+              valor = 997;
+        }
+      }
+    } 
+    // switcheado para mostrar contador numeros comunes
+    else 
+    {
+      if(pin_boton_presionado == BOTON_INCREMENTAR){  
+        valor++;
+        if(valor > 999)
+          valor = 0;
+      } else if(pin_boton_presionado == BOTON_DECREMENTAR) {
+        valor--;
+        if(valor < 0 )
+          valor = 999;
+      } 
+    }
+    
+  	valorAnterior = valor;
+  }
+  
+  imprimirValorActual(valor); 
+}
+/*
+si se presiono alguno de los pulsadores (anterior, siguiente o mostrar temperatura) esta funcion retorna el nro de pin correspondiente
+si no se presiono ninguno, retorna un 0
+*/
+int get_pin_boton_presionado(void) {
+  
+  	if(digitalRead(MOSTRAR_TEMPERATURA) == 0){
+      return MOSTRAR_TEMPERATURA;
+  	}
+  
+    botonIncrementarEstadoActual = digitalRead(BOTON_INCREMENTAR);
+    botonDecrementarEstadoActual = digitalRead(BOTON_DECREMENTAR);
+  
+    if(botonIncrementarEstadoActual == 1) 
+      botonIncremenatarEstadoPrevio = 1; 
+    if(botonDecrementarEstadoActual == 1)
+      botonDecrementarEstadPrevio = 1; 
+    
+  	// se presiono BOTON_INCREMENTAR y no estaba presionado?
+    if(botonIncrementarEstadoActual == 0 && botonIncrementarEstadoActual != botonIncremenatarEstadoPrevio) { 
+        botonIncremenatarEstadoPrevio = botonIncrementarEstadoActual; 
+        return BOTON_INCREMENTAR;
+    }
+    
+    // se presiono BOTON_DECREMENTAR y no estaba presionado?
+    if(botonDecrementarEstadoActual == 0 && botonDecrementarEstadoActual != botonDecrementarEstadPrevio) {
+      botonDecrementarEstadPrevio = botonDecrementarEstadoActual;
+      return BOTON_DECREMENTAR;
+    }
+    
+    return 0; // no se presiono ningun boton 
+}
+
+/*
+esta funcion recibe el valor a imprimir (puede ser el contador de numeros o la temperatura actual),
+procesa el dato y luego manda a llamar a las funciones que se encargan de activar los displays para realizar la impresion
+*/
+void imprimirValorActual(int valorActual) {
+    if(valorActual < 0) {
+        negativo = true;
+    }
+  
+	valorActual = abs(valorActual);  
+  	int centena = valorActual / 100;
+  	int decena = (valorActual - centena * 100) / 10;
+    int unidad = valorActual - (centena * 100) - (decena * 10);
+  	  
+  	encenderDisplay(APAGAR_DISPLAYS); // pongo los 3 displays en 5v para apagarlos
+    
+  	encenderSegmentos(centena, negativo); // enciendo los leds del display de la centena 
+    negativo = false;
+    encenderDisplay(DISPLAY_CENTENA); // pongo en 0v el display de la centena para encenderlo
+  	
+  	encenderDisplay(APAGAR_DISPLAYS); // pongo los 3 displays en 5v para apagarlos
+  
+  	encenderSegmentos(decena, negativo); // enciendo los leds del display de la decena 
+    encenderDisplay(DISPLAY_DECENA); // pongo en 0v el display de la decena para encenderlo
+    
+  	encenderDisplay(APAGAR_DISPLAYS); // pongo los 3 displays en 5v para apagarlos
+    
+  	encenderSegmentos(unidad, negativo); // enciendo los leds del display de la unidad 
+    encenderDisplay(DISPLAY_UNIDAD); // pongo en 0v el display de la unidad para encenderlo
+}
+
+/*
+esta funcion recibe el pin de uno de los displays, el cual pondra en 0v para encenderlo,
+y los otros 2 los pondra en 5v para apagarlos
+puede tambien recibir un "0", en cuyo caso apagara los 3 displays
+*/
+void encenderDisplay(int pinDisplay){
+  if(pinDisplay == DISPLAY_CENTENA) {
+  	digitalWrite(DISPLAY_CENTENA, LOW);
+    digitalWrite(DISPLAY_DECENA, HIGH);
+    digitalWrite(DISPLAY_UNIDAD, HIGH);
+    delay(TIEMPO_DELAY);
+    
+  } else if(pinDisplay == DISPLAY_UNIDAD) {
+    digitalWrite(DISPLAY_CENTENA, HIGH);
+    digitalWrite(DISPLAY_DECENA, HIGH);
+  	digitalWrite(DISPLAY_UNIDAD, LOW);
+    delay(TIEMPO_DELAY);
+  } else if(pinDisplay == DISPLAY_DECENA){
+    digitalWrite(DISPLAY_CENTENA, HIGH);
+    digitalWrite(DISPLAY_DECENA, LOW);
+  	digitalWrite(DISPLAY_UNIDAD, HIGH);
+    delay(TIEMPO_DELAY);  
+  } else {
+    digitalWrite(DISPLAY_CENTENA, HIGH);
+    digitalWrite(DISPLAY_DECENA, HIGH);
+    digitalWrite(DISPLAY_UNIDAD, HIGH);
+    delay(TIEMPO_DELAY);
+  }
+}
+
+/*
+esta funcion recibe un int entre 0 y 9, el parametro negativo en false (para saber en cuyo caso, 
+que debe unicamente encender el segmento "G" del display de la centena)
+enciende los segmentos que corresondan para representar 
+en un display de 7 segmentos el int recibido en el parametro numero
+*/
+void encenderSegmentos(int numero, bool negativo){
+  digitalWrite(SEGMENTO_A, LOW);
+  digitalWrite(SEGMENTO_B, LOW);
+  digitalWrite(SEGMENTO_C, LOW);
+  digitalWrite(SEGMENTO_D, LOW);
+  digitalWrite(SEGMENTO_E, LOW);
+  digitalWrite(SEGMENTO_F, LOW);
+  digitalWrite(SEGMENTO_G, LOW);
+  if (negativo) {
+    digitalWrite(SEGMENTO_G, HIGH);
+  } else {
+    switch(numero){
+        case 1:
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            break;	
+        case 2:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_D, HIGH);
+            digitalWrite(SEGMENTO_E, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        case 3:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_D, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        case 4:
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_F, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        case 5:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_D, HIGH);
+            digitalWrite(SEGMENTO_F, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        case 6:
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_D, HIGH);
+            digitalWrite(SEGMENTO_E, HIGH);
+            digitalWrite(SEGMENTO_F, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        case 7:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            break;	
+        case 8:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_D, HIGH);
+            digitalWrite(SEGMENTO_E, HIGH);
+            digitalWrite(SEGMENTO_F, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        case 9:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_F, HIGH);
+            digitalWrite(SEGMENTO_G, HIGH);
+            break;	
+        default:
+            digitalWrite(SEGMENTO_A, HIGH);
+            digitalWrite(SEGMENTO_B, HIGH);
+            digitalWrite(SEGMENTO_C, HIGH);
+            digitalWrite(SEGMENTO_D, HIGH);
+            digitalWrite(SEGMENTO_E, HIGH);
+            digitalWrite(SEGMENTO_F, HIGH);
+            break;	
+    }
+  }
+}
+
+/*
+valida si el numero recibido por parametro es un numero primo
+*/
+bool esPrimo(int numero) {
+    if (numero <= 1) {
+        return false;
+    }
+    if (numero <= 3) {
+        return true;
+    }
+    if (numero % 2 == 0 || numero % 3 == 0) {
+        return false;
+    }
+    for (int i = 5; i * i <= numero; i += 6) {
+        if (numero % i == 0 || numero % (i + 2) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
